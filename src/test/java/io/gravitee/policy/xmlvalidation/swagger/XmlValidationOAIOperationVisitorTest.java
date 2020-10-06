@@ -154,7 +154,7 @@ public class XmlValidationOAIOperationVisitorTest {
             String configuration = policy.get().getConfiguration();
             assertNotNull(configuration);
             HashMap readConfig = new ObjectMapper().readValue(configuration, HashMap.class);
-            assertEquals(expectedXsdSchema, readConfig.get("xsdSchema"));
+            assertEquals(expectedXsdSchema.replaceAll("\\s", ""), ((String) readConfig.get("xsdSchema")).replaceAll("\\s", ""));
         }
     }
 }
