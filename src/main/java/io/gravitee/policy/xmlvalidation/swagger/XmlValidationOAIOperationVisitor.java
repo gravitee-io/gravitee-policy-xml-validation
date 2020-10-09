@@ -92,7 +92,7 @@ public class XmlValidationOAIOperationVisitor implements OAIOperationVisitor {
                     .createRootElement(true)
                     .nsAlias("ns")
                     .rootElement("root")
-                    .validateXsdSchema(true)
+                    .validateXsdSchema(false)
                     .customTypeMapping(JsonSimpleType.INTEGER, "int64", XsdSimpleType.LONG)
                     .build();
             final Document xmlSchemaDoc = Jsons2Xsd.convert(jsonReader, cfg);
