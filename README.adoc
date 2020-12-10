@@ -1,4 +1,4 @@
-= XML Validation Policy
+= XML validation policy
 
 ifdef::env-github[]
 image:https://ci.gravitee.io/buildStatus/icon?job=gravitee-io/gravitee-policy-xml-validation/master["Build status", link="https://ci.gravitee.io/job/gravitee-io/job/gravitee-policy-xml-validation/"]
@@ -19,9 +19,9 @@ endif::[]
 
 == Description
 
-The XML Validation policy allows XML validation using XSD schema. This policy uses javax.xml.
-Return Error 400 BAD REQUEST when validation failed with custom error message body.
-Inject processing report messages into request metrics for analytics.
+You can use the `xml-validation` policy to validate XML using an XSD schema. This policy uses `javax.xml`.
+A 400 BAD REQUEST error is received with a custom error message body wwith a custom error message body hen validation fails.
+Injects processing report messages into request metrics for analytics.
 
 
 == Configuration
@@ -43,14 +43,15 @@ Inject processing report messages into request metrics for analytics.
 
 |===
 
+== Error
 
-== Http Status Code
+=== HTTP status code
 
 |===
 |Code |Message
 
 .^| ```400```
-| In case of:
+| Applies to:
 
 * Invalid payload
 
