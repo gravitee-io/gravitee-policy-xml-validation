@@ -4,7 +4,7 @@
   "properties" : {
     "errorMessage": {
       "title": "Http error message",
-      "description": "Http error message to send when request is not valid. Status code is 400 as Bad request.",
+      "description": "Http error message to send when request is not valid. Status code is 400 as Bad request. Supports EL.",
       "type": "string",
       "x-schema-form": {
         "type": "codemirror",
@@ -16,7 +16,8 @@
           "autoCloseTags": true,
           "mode": "xml",
           "value": "validation/internal"
-        }
+        },
+        "expression-language": true
       }
     },
     "xsdSchema": {
