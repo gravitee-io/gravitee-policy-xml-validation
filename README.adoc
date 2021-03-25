@@ -23,6 +23,9 @@ You can use the `xml-validation` policy to validate XML using an XSD schema. Thi
 A 400 BAD REQUEST error is received with a custom error message body wwith a custom error message body hen validation fails.
 Injects processing report messages into request metrics for analytics.
 
+=== Policy identifier
+
+You can enable or disable the policy with policy identifier `xml-validation`.
 
 == Configuration
 
