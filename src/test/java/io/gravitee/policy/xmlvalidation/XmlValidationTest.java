@@ -15,6 +15,9 @@
  */
 package io.gravitee.policy.xmlvalidation;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.util.ServiceLoaderHelper;
 import io.gravitee.el.TemplateEngine;
@@ -36,9 +39,6 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
-
 @RunWith(MockitoJUnitRunner.class)
 public class XmlValidationTest {
 
@@ -59,55 +59,60 @@ public class XmlValidationTest {
 
     private BufferFactory factory = ServiceLoaderHelper.loadFactory(BufferFactory.class);
 
-    private String xsdSchema = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" attributeFormDefault=\"unqualified\"\n" +
-            "           elementFormDefault=\"qualified\">\n" +
-            "    <xs:element name=\"root\" type=\"rootType\">\n" +
-            "    </xs:element>\n" +
-            "\n" +
-            "    <xs:complexType name=\"rootType\">\n" +
-            "        <xs:sequence>\n" +
-            "            <xs:element name=\"companies\" type=\"companiesType\"/>\n" +
-            "        </xs:sequence>\n" +
-            "    </xs:complexType>\n" +
-            "\n" +
-            "    <xs:complexType name=\"companiesType\">\n" +
-            "        <xs:sequence>\n" +
-            "            <xs:element name=\"company\" type=\"companyType\" maxOccurs=\"unbounded\" minOccurs=\"0\"/>\n" +
-            "        </xs:sequence>\n" +
-            "    </xs:complexType>\n" +
-            "\n" +
-            "    <xs:complexType name=\"companyType\">\n" +
-            "        <xs:sequence>\n" +
-            "            <xs:element type=\"xs:string\" name=\"name\"/>\n" +
-            "            <xs:element type=\"xs:integer\" name=\"employeeNumber\"/>\n" +
-            "            <xs:element type=\"xs:long\" name=\"sales\"/>\n" +
-            "            <xs:element type=\"xs:string\" name=\"CEO\"/>\n" +
-            "        </xs:sequence>\n" +
-            "    </xs:complexType>\n" +
-            "</xs:schema>";
+    private String xsdSchema =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" attributeFormDefault=\"unqualified\"\n" +
+        "           elementFormDefault=\"qualified\">\n" +
+        "    <xs:element name=\"root\" type=\"rootType\">\n" +
+        "    </xs:element>\n" +
+        "\n" +
+        "    <xs:complexType name=\"rootType\">\n" +
+        "        <xs:sequence>\n" +
+        "            <xs:element name=\"companies\" type=\"companiesType\"/>\n" +
+        "        </xs:sequence>\n" +
+        "    </xs:complexType>\n" +
+        "\n" +
+        "    <xs:complexType name=\"companiesType\">\n" +
+        "        <xs:sequence>\n" +
+        "            <xs:element name=\"company\" type=\"companyType\" maxOccurs=\"unbounded\" minOccurs=\"0\"/>\n" +
+        "        </xs:sequence>\n" +
+        "    </xs:complexType>\n" +
+        "\n" +
+        "    <xs:complexType name=\"companyType\">\n" +
+        "        <xs:sequence>\n" +
+        "            <xs:element type=\"xs:string\" name=\"name\"/>\n" +
+        "            <xs:element type=\"xs:integer\" name=\"employeeNumber\"/>\n" +
+        "            <xs:element type=\"xs:long\" name=\"sales\"/>\n" +
+        "            <xs:element type=\"xs:string\" name=\"CEO\"/>\n" +
+        "        </xs:sequence>\n" +
+        "    </xs:complexType>\n" +
+        "</xs:schema>";
 
-    private Buffer validXmlContent = factory.buffer("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<root>\n" +
-            "    <companies>\n" +
-            "        <company>\n" +
-            "            <name>Foo Inc</name>\n" +
-            "            <employeeNumber>752</employeeNumber>\n" +
-            "            <sales>10451541505</sales>\n" +
-            "            <CEO>John Doo</CEO>\n" +
-            "        </company>\n" +
-            "    </companies>\n" +
-            "</root>");
+    private Buffer validXmlContent = factory.buffer(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<root>\n" +
+        "    <companies>\n" +
+        "        <company>\n" +
+        "            <name>Foo Inc</name>\n" +
+        "            <employeeNumber>752</employeeNumber>\n" +
+        "            <sales>10451541505</sales>\n" +
+        "            <CEO>John Doo</CEO>\n" +
+        "        </company>\n" +
+        "    </companies>\n" +
+        "</root>"
+    );
 
-    private  Buffer invalidXmContent = factory.buffer("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                    "<root>\n" +
-                    "        <company>\n" +
-                    "            <name>Foo Inc</name>\n" +
-                    "            <employeeNumber>752</employeeNumber>\n" +
-                    "            <sales>10451541505</sales>\n" +
-                    "            <CEO>John Doo</CEO>\n" +
-                    "        </company>\n" +
-            "</root>");
+    private Buffer invalidXmContent = factory.buffer(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<root>\n" +
+        "        <company>\n" +
+        "            <name>Foo Inc</name>\n" +
+        "            <employeeNumber>752</employeeNumber>\n" +
+        "            <sales>10451541505</sales>\n" +
+        "            <CEO>John Doo</CEO>\n" +
+        "        </company>\n" +
+        "</root>"
+    );
 
     private Metrics metrics;
 
@@ -117,11 +122,14 @@ public class XmlValidationTest {
     public void beforeAll() {
         metrics = Metrics.on(System.currentTimeMillis()).build();
 
-        when(configuration.getErrorMessage()).thenReturn("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+        when(configuration.getErrorMessage())
+            .thenReturn(
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "  <error>\n" +
                 "    <reason>validation/internal</reason>\n" +
                 "    <internalReason>Internal error occurred. Please retry...</internalReason>\n" +
-                "  </error>");
+                "  </error>"
+            );
         when(configuration.getXsdSchema()).thenReturn(xsdSchema);
         when(mockRequest.metrics()).thenReturn(metrics);
         when(mockExecutionContext.getTemplateEngine()).thenReturn(TemplateEngine.templateEngine());
