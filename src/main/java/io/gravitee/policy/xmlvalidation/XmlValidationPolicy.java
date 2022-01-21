@@ -28,26 +28,24 @@ import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequestContent;
 import io.gravitee.policy.xmlvalidation.configuration.XmlValidationPolicyConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.xml.sax.SAXException;
-
+import java.io.IOException;
+import java.io.StringReader;
 import javax.xml.XMLConstants;
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
-import java.io.IOException;
-import java.io.StringReader;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.SAXException;
 
 public class XmlValidationPolicy {
 
-    private final static Logger logger = LoggerFactory.getLogger(XmlValidationPolicy.class);
+    private static final Logger logger = LoggerFactory.getLogger(XmlValidationPolicy.class);
 
-    private final static String BAD_REQUEST = "Bad Request";
-    private final static String INTERNAL_ERROR = "Internal Error";
+    private static final String BAD_REQUEST = "Bad Request";
+    private static final String INTERNAL_ERROR = "Internal Error";
 
     private XmlValidationPolicyConfiguration configuration;
 
@@ -56,10 +54,14 @@ public class XmlValidationPolicy {
     }
 
     @OnRequestContent
-    public ReadWriteStream onRequestContent(Request request, Response response, ExecutionContext executionContext, PolicyChain policyChain) {
+    public ReadWriteStream onRequestContent(
+        Request request,
+        Response response,
+        ExecutionContext executionContext,
+        PolicyChain policyChain
+    ) {
         logger.debug("Execute XML validation policy on request {}", request.id());
         return new BufferedReadWriteStream() {
-
             Buffer buffer = Buffer.buffer();
 
             @Override

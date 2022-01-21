@@ -29,17 +29,16 @@ import io.gravitee.policy.xmlvalidation.configuration.XmlValidationPolicyConfigu
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.RequestBody;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.w3c.dom.DOMConfiguration;
 import org.w3c.dom.Document;
 import org.w3c.dom.bootstrap.DOMImplementationRegistry;
 import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSSerializer;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.Optional;
 
 /**
  * @author Florent CHAMFROY (florent.chamfroy at graviteesource.com)
@@ -50,6 +49,7 @@ public class XmlValidationOAIOperationVisitor implements OAIOperationVisitor {
     public static final String XSD_TARGET_NAMESPACE = "urn:io:gravitee:policy:xml-validation";
 
     private final ObjectMapper mapper = new ObjectMapper();
+
     {
         mapper.configure(JsonGenerator.Feature.WRITE_NUMBERS_AS_STRINGS, true);
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -85,16 +85,16 @@ public class XmlValidationOAIOperationVisitor implements OAIOperationVisitor {
     }
 
     private String convert(String jsonSchema) throws IOException, InstantiationException, IllegalAccessException, ClassNotFoundException {
-        try(Reader jsonReader = new StringReader(jsonSchema)) {
+        try (Reader jsonReader = new StringReader(jsonSchema)) {
             final Config cfg = new Config.Builder()
-                    .name("rootType")
-                    .targetNamespace(XSD_TARGET_NAMESPACE)
-                    .createRootElement(true)
-                    .nsAlias("ns")
-                    .rootElement("root")
-                    .validateXsdSchema(false)
-                    .customTypeMapping(JsonSimpleType.INTEGER, "int64", XsdSimpleType.LONG)
-                    .build();
+                .name("rootType")
+                .targetNamespace(XSD_TARGET_NAMESPACE)
+                .createRootElement(true)
+                .nsAlias("ns")
+                .rootElement("root")
+                .validateXsdSchema(false)
+                .customTypeMapping(JsonSimpleType.INTEGER, "int64", XsdSimpleType.LONG)
+                .build();
             final Document xmlSchemaDoc = Jsons2Xsd.convert(jsonReader, cfg);
 
             DOMImplementationLS impl = (DOMImplementationLS) DOMImplementationRegistry.newInstance().getDOMImplementation("LS");
