@@ -22,7 +22,7 @@ endif::[]
 == Description
 
 You can use the `xml-validation` policy to validate XML using an XSD schema. This policy uses `javax.xml`.
-A 400 BAD REQUEST error is received with a custom error message body wwith a custom error message body hen validation fails.
+A 400 BAD REQUEST error is received with a custom error message body with a custom error message body when validation fails.
 Injects processing report messages into request metrics for analytics.
 
 
