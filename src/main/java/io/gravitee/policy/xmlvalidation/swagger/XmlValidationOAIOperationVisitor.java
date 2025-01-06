@@ -63,11 +63,12 @@ public class XmlValidationOAIOperationVisitor implements OAIOperationVisitor {
     public Optional<Policy> visit(io.swagger.v3.oas.models.OpenAPI openAPI, io.swagger.v3.oas.models.Operation operation) {
         String jsonSchema = null;
         final RequestBody requestBody = operation.getRequestBody();
+        Schema schema = new Schema<>();
         if (requestBody != null && requestBody.getContent() != null && requestBody.getContent().get("application/xml") != null) {
-            final Schema schema = requestBody.getContent().get("application/xml").getSchema();
+            schema = requestBody.getContent().get("application/xml").getSchema();
             jsonSchema = Json.pretty(schema);
         }
-        if (!StringUtils.isEmpty(jsonSchema)) {
+        if (!StringUtils.isEmpty(jsonSchema) && schema.getProperties() != null) {
             XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
             try {
                 String xmlSchema = convert(jsonSchema);
