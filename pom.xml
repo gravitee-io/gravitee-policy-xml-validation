@@ -39,7 +39,7 @@
         <gravitee-gateway-buffer.version>3.0.13</gravitee-gateway-buffer.version>
 
         <swagger-parser.version>2.0.22</swagger-parser.version>
-        <mockito.version>3.5.13</mockito.version>
+        <mockito.version>5.13.0</mockito.version>
         <json2xsd.version>2.2.0</json2xsd.version>
 
         <maven-assembly-plugin.version>2.5.5</maven-assembly-plugin.version>
@@ -106,7 +106,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-inline</artifactId>
-            <version>${mockito.version}</version>
+            <version>5.2.0</version>
             <scope>test</scope>
         </dependency>
         <!--
