@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/1.2.0...1.2.1) (2025-01-08)
+
+
+### Bug Fixes
+
+* check if the schema properties property is not null ([fd831cb](https://github.com/gravitee-io/gravitee-policy-xml-validation/commit/fd831cb13af392879ab33116640f3687b454ce81))
+
 # [1.2.0](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/1.1.1...1.2.0) (2023-12-19)
 
 
