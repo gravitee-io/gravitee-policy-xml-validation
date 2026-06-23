@@ -13,22 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy.xmlvalidation.swagger;
+package io.gravitee.policy.xmlvalidation.xsd;
 
-import io.gravitee.policy.api.swagger.Policy;
-import io.gravitee.policy.api.swagger.v2.SwaggerOperationVisitor;
-import io.swagger.models.Operation;
-import io.swagger.models.Swagger;
-import java.util.Optional;
+import io.gravitee.gateway.api.ExecutionContext;
+import io.reactivex.rxjava3.core.Single;
+import java.io.IOException;
+import org.xml.sax.SAXException;
 
-/**
- * @author Florent CHAMFROY (florent.chamfroy at graviteesource.com)
- * @author GraviteeSource Team
- */
-public class XmlValidationSwaggerOperationVisitor implements SwaggerOperationVisitor {
+public class StaticXsdResolver implements ValidatableXsdResolver {
+
+    private final String xsdSchema;
+
+    public StaticXsdResolver(String xsdSchema) {
+        this.xsdSchema = xsdSchema;
+    }
 
     @Override
-    public Optional<Policy> visit(Swagger swagger, Operation o) {
-        return Optional.empty();
+    public Single<String> resolveXsd(ExecutionContext executionContext) {
+        return Single.just(xsdSchema);
+    }
+
+    @Override
+    public void validate() throws SAXException, IOException {
+        XsdCompiler.validateXsd(xsdSchema);
     }
 }

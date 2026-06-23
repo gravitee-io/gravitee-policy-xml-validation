@@ -1,11 +1,85 @@
 {
-  "type" : "object",
-  "id" : "urn:xmlschema:io:gravitee:policy:XmlValidationPolicyConfiguration",
-  "properties" : {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "xsdSource": {
+      "title": "XSD source",
+      "type": "object",
+      "description": "XSD schema source",
+      "oneOf": [
+        {
+          "title": "Inline XSD",
+          "properties": {
+            "sourceType": {
+              "const": "INLINE_XSD"
+            },
+            "xsdSchema": {
+              "title": "XSD schema",
+              "description": "XML schema used for request payload validation",
+              "type": "string",
+              "format": "gio-code-editor",
+              "gioConfig": {
+                "monacoEditorConfig": {
+                  "language": "xml"
+                }
+              }
+            }
+          },
+          "required": ["sourceType", "xsdSchema"]
+        },
+        {
+          "title": "Schema registry (embedded / Solace / Apicurio resource)",
+          "properties": {
+            "sourceType": {
+              "const": "SCHEMA_REGISTRY_RESOURCE"
+            },
+            "resourceName": {
+              "title": "Resource name",
+              "description": "Name of the schema registry resource configured on this API",
+              "type": "string"
+            },
+            "schemaMapping": {
+              "title": "Schema subject / ID",
+              "description": "Schema subject or ID to fetch from the registry. Use a literal value (e.g. 'order-v1') or an EL expression (e.g. {#request.headers['X-Schema-Subject'][0]}).",
+              "type": "string"
+            }
+          },
+          "required": ["sourceType", "resourceName", "schemaMapping"]
+        },
+        {
+          "title": "Confluent-compatible REST registry (Apicurio, Confluent, Karapace)",
+          "properties": {
+            "sourceType": {
+              "const": "CONFLUENT_REST"
+            },
+            "registryUrl": {
+              "title": "Registry URL",
+              "description": "Base URL of the Confluent-compatible registry, e.g. http://localhost:8080/apis/ccompat/v7",
+              "type": "string"
+            },
+            "schemaSubject": {
+              "title": "Schema subject",
+              "description": "Subject name registered in the registry, e.g. order-schema",
+              "type": "string"
+            }
+          },
+          "required": ["sourceType", "registryUrl", "schemaSubject"]
+        }
+      ]
+    }
+  },
+  "properties": {
     "errorMessage": {
       "title": "Http error message",
-      "description": "Http error message to send when request is not valid. Status code is 400 as Bad request. Supports EL.",
+      "description": "Http error message to send when request is not valid. Status code is 400 for invalid payload and 500 for schema resolution or XSD errors. Supports EL.",
       "type": "string",
+      "format": "gio-code-editor",
+      "gioConfig": {
+        "monacoEditorConfig": {
+          "language": "xml"
+        }
+      },
       "x-schema-form": {
         "type": "codemirror",
         "codemirrorOptions": {
@@ -24,20 +98,13 @@
       "title": "xsdSchema",
       "description": "XML schema used for request payload validation",
       "type": "string",
+      "deprecated": true,
       "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put your xml schema here or drag'n'drop it",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "xml"
-        }
+        "hidden": true
       }
+    },
+    "xsdSource": {
+      "$ref": "#/definitions/xsdSource"
     }
-  },
-  "required": [
-    "xsdSchema"
-  ]
+  }
 }
