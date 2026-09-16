@@ -1,0 +1,7 @@
+{
+    "schemaSource": "registry",
+    "registryResource": "solace-registry",
+    "groupId": "faa-swim",
+    "artifactId": "fixm-core",
+    "version": "4.2.0"
+}

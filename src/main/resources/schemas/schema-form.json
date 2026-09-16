@@ -1,43 +1,138 @@
 {
-  "type" : "object",
-  "id" : "urn:xmlschema:io:gravitee:policy:XmlValidationPolicyConfiguration",
-  "properties" : {
-    "errorMessage": {
-      "title": "Http error message",
-      "description": "Http error message to send when request is not valid. Status code is 400 as Bad request. Supports EL.",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put your error message here or drag'n'drop it",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "xml",
-          "value": "validation/internal"
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "id": "urn:jsonschema:io:gravitee:policy:xmlvalidation:configuration:XmlValidationPolicyConfiguration",
+    "additionalProperties": false,
+    "properties": {
+        "schemaSource": {
+            "title": "Schema source",
+            "description": "Source of the XSD schema used for XML validation",
+            "type": "string",
+            "default": "inline",
+            "oneOf": [
+                {
+                    "const": "inline",
+                    "title": "Inline XSD"
+                },
+                {
+                    "const": "registry",
+                    "title": "Schema registry"
+                }
+            ]
         },
-        "expression-language": true
-      }
-    },
-    "xsdSchema": {
-      "title": "xsdSchema",
-      "description": "XML schema used for request payload validation",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put your xml schema here or drag'n'drop it",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "xml"
+        "xsdSchema": {
+            "title": "XSD schema",
+            "description": "XML schema used for payload validation",
+            "type": "string",
+            "format": "gio-code-editor",
+            "gioConfig": {
+                "monacoEditorConfig": {
+                    "language": "xml"
+                },
+                "displayIf": {
+                    "$eq": {
+                        "value.schemaSource": "inline"
+                    }
+                }
+            },
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put your xml schema here or drag'n'drop it",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true,
+                    "mode": "xml"
+                }
+            }
+        },
+        "registryResource": {
+            "title": "The name of the Schema Registry resource",
+            "description": "The schema registry resource configured on this API, used to resolve the XSD artifact.",
+            "type": "string",
+            "gioConfig": {
+                "uiType": "resource-type",
+                "uiTypeProps": {
+                    "resourceType": "schema-registry-resource"
+                },
+                "displayIf": {
+                    "$eq": {
+                        "value.schemaSource": "registry"
+                    }
+                }
+            }
+        },
+        "groupId": {
+            "title": "Group ID",
+            "description": "Schema registry group identifier",
+            "type": "string",
+            "gioConfig": {
+                "displayIf": {
+                    "$eq": {
+                        "value.schemaSource": "registry"
+                    }
+                }
+            }
+        },
+        "artifactId": {
+            "title": "Artifact ID",
+            "description": "Schema registry artifact identifier",
+            "type": "string",
+            "gioConfig": {
+                "displayIf": {
+                    "$eq": {
+                        "value.schemaSource": "registry"
+                    }
+                }
+            }
+        },
+        "version": {
+            "title": "Version",
+            "description": "Pinned root schema artifact version. Related artifacts are resolved from the registry /references graph when present.",
+            "type": "string",
+            "gioConfig": {
+                "displayIf": {
+                    "$eq": {
+                        "value.schemaSource": "registry"
+                    }
+                }
+            }
+        },
+        "errorMessage": {
+            "title": "Http error message",
+            "description": "Custom error message to send when request validation fails (HTTP 400). Supports EL.",
+            "type": "string",
+            "format": "gio-code-editor",
+            "gioConfig": {
+                "monacoEditorConfig": {
+                    "language": "json"
+                }
+            },
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put your error message here or drag'n'drop it",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true,
+                    "mode": "json",
+                    "value": "validation/internal"
+                },
+                "expression-language": true
+            }
         }
-      }
+    },
+    "required": ["schemaSource"],
+    "if": {
+        "properties": {
+            "schemaSource": {
+                "const": "registry"
+            }
+        }
+    },
+    "then": {
+        "required": ["registryResource", "groupId", "artifactId", "version"]
     }
-  },
-  "required": [
-    "xsdSchema"
-  ]
 }
