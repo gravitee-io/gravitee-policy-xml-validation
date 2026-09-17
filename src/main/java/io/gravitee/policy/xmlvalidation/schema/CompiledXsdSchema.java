@@ -13,22 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy.xmlvalidation.swagger;
+package io.gravitee.policy.xmlvalidation.schema;
 
-import io.gravitee.policy.api.swagger.Policy;
-import io.gravitee.policy.api.swagger.v2.SwaggerOperationVisitor;
-import io.swagger.models.Operation;
-import io.swagger.models.Swagger;
-import java.util.Optional;
+import javax.xml.validation.Schema;
 
-/**
- * @author Florent CHAMFROY (florent.chamfroy at graviteesource.com)
- * @author GraviteeSource Team
- */
-public class XmlValidationSwaggerOperationVisitor implements SwaggerOperationVisitor {
+public final class CompiledXsdSchema {
 
-    @Override
-    public Optional<Policy> visit(Swagger swagger, Operation o) {
-        return Optional.empty();
+    private final Schema schema;
+
+    public CompiledXsdSchema(Schema schema) {
+        this.schema = schema;
+    }
+
+    public Schema schema() {
+        return schema;
     }
 }

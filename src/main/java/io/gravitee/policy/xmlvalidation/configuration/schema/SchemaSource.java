@@ -13,22 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy.xmlvalidation.swagger;
+package io.gravitee.policy.xmlvalidation.configuration.schema;
 
-import io.gravitee.policy.api.swagger.Policy;
-import io.gravitee.policy.api.swagger.v2.SwaggerOperationVisitor;
-import io.swagger.models.Operation;
-import io.swagger.models.Swagger;
-import java.util.Optional;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * @author Florent CHAMFROY (florent.chamfroy at graviteesource.com)
- * @author GraviteeSource Team
- */
-public class XmlValidationSwaggerOperationVisitor implements SwaggerOperationVisitor {
+public enum SchemaSource {
+    @JsonProperty("inline")
+    INLINE,
 
-    @Override
-    public Optional<Policy> visit(Swagger swagger, Operation o) {
-        return Optional.empty();
-    }
+    @JsonProperty("registry")
+    REGISTRY,
 }
