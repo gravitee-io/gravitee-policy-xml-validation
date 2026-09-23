@@ -25,11 +25,13 @@ You can use the `xml-validation` policy to validate XML using an XSD schema. Thi
 A 400 BAD REQUEST error is received with a custom error message body with a custom error message body when validation fails.
 Injects processing report messages into request metrics for analytics.
 
-== Compatibility with APIM
+== Compatibility matrix
 
 |===
-| Plugin version | APIM version
-| 1.x            | All supported versions
+| Plugin version | APIM            | Java version
+
+| 2.x            | 4.7.x to latest | 21
+| 1.x            | 3.x to latest   | 8
 |===
 
 
