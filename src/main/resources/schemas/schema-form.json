@@ -1,43 +1,41 @@
 {
-  "type" : "object",
-  "id" : "urn:xmlschema:io:gravitee:policy:XmlValidationPolicyConfiguration",
-  "properties" : {
-    "errorMessage": {
-      "title": "Http error message",
-      "description": "Http error message to send when request is not valid. Status code is 400 as Bad request. Supports EL.",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put your error message here or drag'n'drop it",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "xml",
-          "value": "validation/internal"
+    "type": "object",
+    "id": "urn:xmlschema:io:gravitee:policy:XmlValidationPolicyConfiguration",
+    "properties": {
+        "errorMessage": {
+            "title": "Http error message",
+            "description": "Http error message to send when request is not valid. Status code is 400 as Bad request. Supports EL.",
+            "type": "string",
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put your error message here or drag'n'drop it",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true,
+                    "mode": "xml",
+                    "value": "validation/internal"
+                },
+                "expression-language": true
+            }
         },
-        "expression-language": true
-      }
-    },
-    "xsdSchema": {
-      "title": "xsdSchema",
-      "description": "XML schema used for request payload validation",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put your xml schema here or drag'n'drop it",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "xml"
+        "xsdSchema": {
+            "title": "xsdSchema",
+            "description": "XML schema used for request payload validation",
+            "type": "string",
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put your xml schema here or drag'n'drop it",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true,
+                    "mode": "xml"
+                }
+            }
         }
-      }
-    }
-  },
-  "required": [
-    "xsdSchema"
-  ]
+    },
+    "required": ["xsdSchema"]
 }
