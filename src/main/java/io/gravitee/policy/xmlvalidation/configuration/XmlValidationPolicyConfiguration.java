@@ -16,12 +16,23 @@
 package io.gravitee.policy.xmlvalidation.configuration;
 
 import io.gravitee.policy.api.PolicyConfiguration;
+import io.gravitee.policy.xmlvalidation.configuration.schema.SchemaSource;
 
 public class XmlValidationPolicyConfiguration implements PolicyConfiguration {
 
     private String errorMessage;
 
+    private SchemaSource schemaSource;
+
     private String xsdSchema;
+
+    private String registryResource;
+
+    private String groupId;
+
+    private String artifactId;
+
+    private String version;
 
     public String getErrorMessage() {
         return errorMessage;
@@ -31,11 +42,54 @@ public class XmlValidationPolicyConfiguration implements PolicyConfiguration {
         this.errorMessage = errorMessage;
     }
 
+    /**
+     * Returns {@link SchemaSource#INLINE} when {@code schemaSource} is absent (legacy configs).
+     */
+    public SchemaSource getSchemaSource() {
+        return schemaSource != null ? schemaSource : SchemaSource.INLINE;
+    }
+
+    public void setSchemaSource(SchemaSource schemaSource) {
+        this.schemaSource = schemaSource;
+    }
+
     public String getXsdSchema() {
         return xsdSchema;
     }
 
     public void setXsdSchema(String xsdSchema) {
         this.xsdSchema = xsdSchema;
+    }
+
+    public String getRegistryResource() {
+        return registryResource;
+    }
+
+    public void setRegistryResource(String registryResource) {
+        this.registryResource = registryResource;
+    }
+
+    public String getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(String groupId) {
+        this.groupId = groupId;
+    }
+
+    public String getArtifactId() {
+        return artifactId;
+    }
+
+    public void setArtifactId(String artifactId) {
+        this.artifactId = artifactId;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
     }
 }
