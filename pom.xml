@@ -40,7 +40,7 @@
         <gravitee-gateway-buffer.version>3.13.1</gravitee-gateway-buffer.version>
 
         <swagger-parser.version>2.1.48</swagger-parser.version>
-        <mockito.version>5.13.0</mockito.version>
+        <mockito.version>5.24.0</mockito.version>
         <json2xsd.version>2.2.0</json2xsd.version>
 
         <!-- Property used by the publication job in CI-->
