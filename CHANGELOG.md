@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.0.0...2.1.0) (2026-10-06)
+
+
+### Features
+
+* support schema registry for xml-validation policy ([a1b83b8](https://github.com/gravitee-io/gravitee-policy-xml-validation/commit/a1b83b831a230e86cac0d8ff41cf1a4411ae02b5))
+
 # [2.0.0](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/1.2.1...2.0.0) (2026-10-02)
 
 
