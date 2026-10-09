@@ -36,12 +36,15 @@ public final class CompiledXsdSchemaHolder {
 
     /**
      * API-classloader-scoped: each API's policy ClassLoader has its own static map.
+     * Digests are not evicted when a floating version moves on: another policy instance in this
+     * classloader may still be validating against the previous bytes.
      */
     private static final ConcurrentHashMap<String, Schema> SCHEMA_BY_DIGEST = new ConcurrentHashMap<>();
 
     private final XmlValidationPolicyConfiguration configuration;
     private final Object lock = new Object();
     private volatile CompiledXsdSchema compiledSchema;
+    private volatile String compiledBundleDigest;
     private volatile XsdSchemaResolutionException initializationFailure;
     private volatile Maybe<CompiledXsdSchema> inFlight;
 
@@ -84,7 +87,7 @@ public final class CompiledXsdSchemaHolder {
             if (initializationFailure != null) {
                 return Maybe.error(initializationFailure);
             }
-            XsdSchemaResolver resolver = XsdSchemaResolverFactory.create(configuration, resourceManager);
+            XsdSchemaResolver resolver = XsdSchemaResolverFactory.create(configuration, resourceManager, this);
             cached = resolver
                 .resolveReactive()
                 .doOnSuccess(schema -> {
@@ -133,6 +136,25 @@ public final class CompiledXsdSchemaHolder {
             }
             inFlight = null;
         }
+    }
+
+    /**
+     * Reuse the compiled schema when the resource returns the same bundle digest. A different digest
+     * compiles again; {@link XsdSchemaCompiler} still recomputes the digest from bytes on that path.
+     */
+    CompiledXsdSchema compiledFrom(io.gravitee.resource.schema_registry.api.ArtifactSchemaBundle bundle) {
+        String reported = bundle == null ? null : bundle.digest();
+        CompiledXsdSchema current = compiledSchema;
+        if (current != null && reported != null && !reported.isBlank() && reported.equals(compiledBundleDigest)) {
+            return current;
+        }
+        CompiledXsdSchema compiled = XsdSchemaCompiler.compile(bundle);
+        synchronized (lock) {
+            compiledSchema = compiled;
+            // A blank digest cannot be trusted as a cache key for the next request.
+            compiledBundleDigest = reported != null && !reported.isBlank() ? reported : null;
+        }
+        return compiled;
     }
 
     public CompiledXsdSchema compiledSchema() {

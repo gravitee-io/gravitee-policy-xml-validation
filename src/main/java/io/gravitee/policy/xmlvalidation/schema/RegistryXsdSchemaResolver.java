@@ -33,10 +33,16 @@ public final class RegistryXsdSchemaResolver implements XsdSchemaResolver {
 
     private final XmlValidationPolicyConfiguration configuration;
     private final ResourceManager resourceManager;
+    private final CompiledXsdSchemaHolder holder;
 
-    public RegistryXsdSchemaResolver(XmlValidationPolicyConfiguration configuration, ResourceManager resourceManager) {
+    public RegistryXsdSchemaResolver(
+        XmlValidationPolicyConfiguration configuration,
+        ResourceManager resourceManager,
+        CompiledXsdSchemaHolder holder
+    ) {
         this.configuration = configuration;
         this.resourceManager = resourceManager;
+        this.holder = holder;
     }
 
     @Override
@@ -138,7 +144,7 @@ public final class RegistryXsdSchemaResolver implements XsdSchemaResolver {
             .observeOn(Schedulers.computation())
             .map(bundle -> {
                 try {
-                    return XsdSchemaCompiler.compile(bundle);
+                    return holder.compiledFrom(bundle);
                 } catch (XsdSchemaResolutionException ex) {
                     throw ex;
                 } catch (RuntimeException ex) {
