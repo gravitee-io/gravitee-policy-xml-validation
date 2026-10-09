@@ -19,8 +19,10 @@ import io.gravitee.policy.xmlvalidation.schema.CompiledXsdSchema;
 import io.gravitee.policy.xmlvalidation.schema.SecureXml;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -67,7 +69,8 @@ public final class XmlPayloadValidator {
         }
 
         Validator validator = compiledXsdSchema.schema().newValidator();
-        CollectingErrorHandler errorHandler = new CollectingErrorHandler();
+        XmlPathTracker pathTracker = new XmlPathTracker();
+        CollectingErrorHandler errorHandler = new CollectingErrorHandler(pathTracker);
         validator.setErrorHandler(errorHandler);
         setLocaleRoot(validator);
 
@@ -76,12 +79,16 @@ public final class XmlPayloadValidator {
             parser.reset();
             XMLReader xmlReader = parser.getXMLReader();
             setLocaleRoot(xmlReader);
-            validator.validate(new SAXSource(xmlReader, new InputSource(new StringReader(xml))));
+            pathTracker.setParent(xmlReader);
+            validator.validate(new SAXSource(pathTracker, new InputSource(new StringReader(xml))));
         } catch (SAXException ex) {
-            if (ex instanceof SAXParseException saxParseException) {
-                errorHandler.errors.add(XmlValidationViolation.from(saxParseException));
-            } else if (errorHandler.errors.isEmpty()) {
-                errorHandler.errors.add(new XmlValidationViolation(0, 0, null, ex.getMessage()));
+            // Xerces already reported via ErrorHandler; only add if nothing was collected.
+            if (errorHandler.errors.isEmpty()) {
+                if (ex instanceof SAXParseException saxParseException) {
+                    errorHandler.errors.add(XmlValidationViolation.from(saxParseException, pathTracker.currentPath()));
+                } else {
+                    errorHandler.errors.add(new XmlValidationViolation(0, 0, null, ex.getMessage()));
+                }
             }
         } catch (Exception ex) {
             return XmlValidationResult.failure(List.of(new XmlValidationViolation(0, 0, null, ex.getMessage())));
@@ -90,7 +97,46 @@ public final class XmlPayloadValidator {
         if (errorHandler.errors.isEmpty()) {
             return XmlValidationResult.success();
         }
-        return XmlValidationResult.failure(errorHandler.errors);
+        return XmlValidationResult.failure(dedupe(errorHandler.errors));
+    }
+
+    /**
+     * Collapse exact duplicates and the redundant Xerces {@code cvc-type.*} companion that repeats a
+     * more specific facet code at the same location. Distinct constraint codes at that location are kept.
+     */
+    static List<XmlValidationViolation> dedupe(List<XmlValidationViolation> errors) {
+        Map<String, List<XmlValidationViolation>> byLocation = new LinkedHashMap<>();
+        for (XmlValidationViolation violation : errors) {
+            byLocation.computeIfAbsent(violation.line() + ":" + violation.column(), key -> new ArrayList<>()).add(violation);
+        }
+        List<XmlValidationViolation> kept = new ArrayList<>();
+        for (List<XmlValidationViolation> atLocation : byLocation.values()) {
+            boolean hasSpecific = atLocation.stream().anyMatch(violation -> !isGenericTypeCode(violation.code()));
+            Map<String, XmlValidationViolation> byCode = new LinkedHashMap<>();
+            for (XmlValidationViolation violation : atLocation) {
+                if (hasSpecific && isGenericTypeCode(violation.code())) {
+                    continue;
+                }
+                String codeKey = violation.code() == null ? "" : violation.code();
+                XmlValidationViolation existing = byCode.get(codeKey);
+                if (existing == null || isRicher(violation, existing)) {
+                    byCode.put(codeKey, violation);
+                }
+            }
+            kept.addAll(byCode.values());
+        }
+        return List.copyOf(kept);
+    }
+
+    private static boolean isRicher(XmlValidationViolation candidate, XmlValidationViolation existing) {
+        if ((candidate.element() != null) != (existing.element() != null)) {
+            return candidate.element() != null;
+        }
+        return candidate.path() != null && existing.path() == null;
+    }
+
+    private static boolean isGenericTypeCode(String code) {
+        return code != null && code.toLowerCase(Locale.ROOT).startsWith("cvc-type.");
     }
 
     private static SAXParserFactory saxParserFactory() {
@@ -132,6 +178,11 @@ public final class XmlPayloadValidator {
 
         private static final int MAX_ERRORS = 20;
         private final List<XmlValidationViolation> errors = new ArrayList<>();
+        private final XmlPathTracker pathTracker;
+
+        private CollectingErrorHandler(XmlPathTracker pathTracker) {
+            this.pathTracker = pathTracker;
+        }
 
         @Override
         public void warning(SAXParseException exception) {
@@ -140,15 +191,17 @@ public final class XmlPayloadValidator {
 
         @Override
         public void error(SAXParseException exception) {
-            if (errors.size() < MAX_ERRORS) {
-                errors.add(XmlValidationViolation.from(exception));
-            }
+            add(exception);
         }
 
         @Override
         public void fatalError(SAXParseException exception) {
+            add(exception);
+        }
+
+        private void add(SAXParseException exception) {
             if (errors.size() < MAX_ERRORS) {
-                errors.add(XmlValidationViolation.from(exception));
+                errors.add(XmlValidationViolation.from(exception, pathTracker.currentPath()));
             }
         }
     }

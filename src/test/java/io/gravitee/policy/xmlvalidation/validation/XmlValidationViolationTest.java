@@ -55,4 +55,22 @@ class XmlValidationViolationTest {
         assertThat(violation.code()).isEqualTo("cvc-type.3.1.3");
         assertThat(violation.formatted()).contains("field 'employeeNumber'");
     }
+
+    @Test
+    void shouldExtractElementFromAnonTypeFacetMessage() {
+        SAXParseException exception = new SAXParseException(
+            "cvc-pattern-valid: Value 'abc' is not facet-valid with respect to pattern '[A-Z]{3}-[0-9]{4}' for type '#AnonType_sku'.",
+            null,
+            null,
+            3,
+            12
+        );
+
+        XmlValidationViolation violation = XmlValidationViolation.from(exception, "/order/sku");
+
+        assertThat(violation.element()).isEqualTo("sku");
+        assertThat(violation.path()).isEqualTo("/order/sku");
+        assertThat(violation.code()).isEqualTo("cvc-pattern-valid");
+        assertThat(violation.formatted()).contains("path '/order/sku'");
+    }
 }

@@ -21,9 +21,9 @@ endif::[]
 
 == Description
 
-You can use the `xml-validation` policy to validate XML using an XSD schema. This policy uses `javax.xml`.
-A 400 BAD REQUEST error is received with a custom error message body with a custom error message body when validation fails.
-Injects processing report messages into request metrics for analytics.
+You can use the `xml-validation` policy to validate an XML request body against an XSD schema.
+The schema can be provided inline or loaded from a Schema Registry resource (HTTP / Apicurio-compatible artifact lookup).
+Validation failures return JSON with a `violations` array. Schema-resolution failures return JSON with a `message` only.
 
 == Compatibility matrix
 
@@ -40,17 +40,47 @@ Injects processing report messages into request metrics for analytics.
 |===
 |Property |Required |Description |Type| Default
 
-.^|errorMessage
+.^|schemaSource
 ^.^|
-|Custom error message in XML format. Spel is allowed.
-^.^|string
-|validation/internal
+|Where the XSD comes from: `INLINE` or `REGISTRY`.
+^.^|enum
+|`INLINE`
 
 .^|xsdSchema
-^.^|X
-|Xsd schema.
+^.^|when `schemaSource=INLINE`
+|Inline XSD document.
 ^.^|string
 |
+
+.^|registryResource
+^.^|when `schemaSource=REGISTRY`
+|Name of the Schema Registry resource configured on the API (must implement artifact schema lookup).
+^.^|string
+|
+
+.^|groupId
+^.^|when `schemaSource=REGISTRY`
+|Registry group id of the root artifact.
+^.^|string
+|
+
+.^|artifactId
+^.^|when `schemaSource=REGISTRY`
+|Registry artifact id of the root artifact.
+^.^|string
+|
+
+.^|version
+^.^|when `schemaSource=REGISTRY`
+|Artifact version. Floating refs such as `branch=latest` are supported; refresh follows the resource byte-cache TTL.
+^.^|string
+|
+
+.^|errorMessage
+^.^|
+|Custom error message for payload validation failures. SpEL is allowed.
+^.^|string
+|`XML validation failed`
 
 |===
 
@@ -64,10 +94,21 @@ Injects processing report messages into request metrics for analytics.
 .^| ```400```
 | Applies to:
 
-* Invalid payload
+* Invalid XML payload (schema validation failed)
+* Invalid policy configuration (missing registry fields, wrong resource type, …)
 
-* Invalid XSD schema
+.^| ```500```
+| Applies to:
 
-* Invalid error message XML format
+* Unable to compile the resolved XSD
+* Schema artifact not found
+* Schema closure exceeds configured limits
+* Other schema resolution failures
+
+.^| ```503```
+| Applies to:
+
+* Schema registry resource not ready
+* Schema registry temporarily unreachable
 
 |===

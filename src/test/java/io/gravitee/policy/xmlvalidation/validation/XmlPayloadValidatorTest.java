@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.gravitee.policy.xmlvalidation.configuration.schema.SchemaSource;
 import io.gravitee.policy.xmlvalidation.schema.CompiledXsdSchema;
 import io.gravitee.policy.xmlvalidation.schema.XsdSchemaCompiler;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class XmlPayloadValidatorTest {
@@ -56,6 +57,75 @@ class XmlPayloadValidatorTest {
         CompiledXsdSchema schema = XsdSchemaCompiler.compile(XSD, SchemaSource.INLINE);
         XmlValidationResult result = XmlPayloadValidator.validate(schema, "<order><unknown>Alice</unknown></order>");
         assertThat(result.isValid()).isFalse();
-        assertThat(result.summary()).contains("field 'unknown'");
+        assertThat(result.summary()).contains("unknown");
+        assertThat(result.violations()).hasSize(1);
+        assertThat(result.violations().getFirst().path()).isEqualTo("/order/unknown");
+    }
+
+    @Test
+    void shouldNotDuplicateFatalParseErrors() {
+        CompiledXsdSchema schema = XsdSchemaCompiler.compile(XSD, SchemaSource.INLINE);
+        XmlValidationResult result = XmlPayloadValidator.validate(schema, "<order><customer>Alice</customer>");
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.violations()).hasSize(1);
+    }
+
+    @Test
+    void shouldDedupeGenericTypeAndFacetCodesAtSameLocation() {
+        String xsd = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test:order"
+                       xmlns="urn:test:order" elementFormDefault="qualified">
+              <xs:element name="order">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="sku">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                          <xs:pattern value="[A-Z]{3}-[0-9]{4}"/>
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element name="quantity">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:positiveInteger">
+                          <xs:minInclusive value="1"/>
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:schema>""";
+        CompiledXsdSchema schema = XsdSchemaCompiler.compile(xsd, SchemaSource.INLINE);
+        XmlValidationResult result = XmlPayloadValidator.validate(
+            schema,
+            """
+            <order xmlns="urn:test:order">
+              <sku>abc</sku>
+              <quantity>0</quantity>
+            </order>"""
+        );
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.violations()).hasSize(2);
+        assertThat(result.violations())
+            .extracting(XmlValidationViolation::code)
+            .noneMatch(code -> code != null && code.startsWith("cvc-type."));
+        assertThat(result.violations()).allSatisfy(v -> {
+            assertThat(v.element()).isNotBlank();
+            assertThat(v.path()).isNotBlank();
+        });
+    }
+
+    @Test
+    void shouldKeepDistinctConstraintCodesAtTheSameLocation() {
+        XmlValidationViolation generic = new XmlValidationViolation(2, 10, "sku", "type", "cvc-type.3.1.3", "/order/sku");
+        XmlValidationViolation pattern = new XmlValidationViolation(2, 10, "sku", "pattern", "cvc-pattern-valid", "/order/sku");
+        XmlValidationViolation length = new XmlValidationViolation(2, 10, "sku", "length", "cvc-length-valid", "/order/sku");
+        XmlValidationViolation duplicate = new XmlValidationViolation(2, 10, null, "pattern again", "cvc-pattern-valid", null);
+
+        assertThat(XmlPayloadValidator.dedupe(List.of(generic, pattern, length, duplicate)))
+            .extracting(XmlValidationViolation::code)
+            .containsExactly("cvc-pattern-valid", "cvc-length-valid");
     }
 }

@@ -96,6 +96,27 @@ class CompiledXsdSchemaHolderTest {
     }
 
     @Test
+    void shouldReResolveRegistrySchemaOnEachEnsureReady() {
+        XmlValidationPolicyConfiguration configuration = registryConfig();
+        AtomicInteger fetches = new AtomicInteger();
+        ArtifactSchemaLookup lookup = readyLookup(fetches, Maybe.just(bundle("digest-refresh")));
+
+        ResourceManager resourceManager = mock(ResourceManager.class);
+        when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        when(ctx.getComponent(ResourceManager.class)).thenReturn(resourceManager);
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+
+        holder.ensureReady(ctx).blockingAwait();
+        holder.ensureReady(ctx).blockingAwait();
+
+        assertThat(fetches.get()).isEqualTo(2);
+        assertThat(holder.compiledSchema()).isNotNull();
+    }
+
+    @Test
     void shouldRetryAfterTransientUnreachableFailure() {
         XmlValidationPolicyConfiguration configuration = registryConfig();
         AtomicInteger fetches = new AtomicInteger();

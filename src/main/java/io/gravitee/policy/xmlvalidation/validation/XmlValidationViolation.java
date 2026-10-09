@@ -19,22 +19,38 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.xml.sax.SAXParseException;
 
-public record XmlValidationViolation(int line, int column, String element, String message, String code) {
+public record XmlValidationViolation(int line, int column, String element, String message, String code, String path) {
     private static final Pattern ELEMENT_PATTERN = Pattern.compile("element '([^']+)'");
     private static final Pattern CODE_PATTERN = Pattern.compile("\\b(cvc-[\\w.\\-]+)\\b", Pattern.CASE_INSENSITIVE);
+    /** Xerces anonymous type names often look like {@code #AnonType_<localName>}. */
+    private static final Pattern ANON_TYPE_ELEMENT = Pattern.compile("#AnonType_([A-Za-z_][\\w.-]*)");
 
     public XmlValidationViolation(int line, int column, String element, String message) {
-        this(line, column, element, message, extractCode(message));
+        this(line, column, element, message, extractCode(message), null);
+    }
+
+    public XmlValidationViolation(int line, int column, String element, String message, String code) {
+        this(line, column, element, message, code, null);
     }
 
     public static XmlValidationViolation from(SAXParseException exception) {
+        return from(exception, null);
+    }
+
+    public static XmlValidationViolation from(SAXParseException exception, String path) {
         String message = exception.getMessage();
+        // Prefer the live parse path local-name over Xerces message scraping (#AnonType_quantityorder).
+        String element = (path != null && !path.isBlank()) ? localName(path) : extractElement(message);
+        if (element == null || element.isBlank()) {
+            element = extractElement(message);
+        }
         return new XmlValidationViolation(
             exception.getLineNumber(),
             exception.getColumnNumber(),
-            extractElement(message),
+            element,
             message,
-            extractCode(message)
+            extractCode(message),
+            path
         );
     }
 
@@ -49,7 +65,12 @@ public record XmlValidationViolation(int line, int column, String element, Strin
             }
             builder.append("column ").append(column);
         }
-        if (element != null && !element.isBlank()) {
+        if (path != null && !path.isBlank()) {
+            if (!builder.isEmpty()) {
+                builder.append(", ");
+            }
+            builder.append("path '").append(path).append("'");
+        } else if (element != null && !element.isBlank()) {
             if (!builder.isEmpty()) {
                 builder.append(", ");
             }
@@ -71,7 +92,14 @@ public record XmlValidationViolation(int line, int column, String element, Strin
         while (matcher.find()) {
             lastMatch = matcher.group(1);
         }
-        return lastMatch;
+        if (lastMatch != null) {
+            return lastMatch;
+        }
+        Matcher anon = ANON_TYPE_ELEMENT.matcher(message);
+        if (anon.find()) {
+            return anon.group(1);
+        }
+        return null;
     }
 
     private static String extractCode(String message) {
@@ -80,5 +108,13 @@ public record XmlValidationViolation(int line, int column, String element, Strin
         }
         Matcher matcher = CODE_PATTERN.matcher(message);
         return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static String localName(String path) {
+        int slash = path.lastIndexOf('/');
+        if (slash < 0 || slash == path.length() - 1) {
+            return path.startsWith("/") ? path.substring(1) : path;
+        }
+        return path.substring(slash + 1);
     }
 }

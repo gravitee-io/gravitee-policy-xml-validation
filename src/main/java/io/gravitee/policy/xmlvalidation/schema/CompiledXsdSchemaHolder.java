@@ -28,8 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.xml.validation.Schema;
 
 /**
- * Holds a compiled XSD for a policy instance. Registry schemas use a static digest→Schema cache
- * scoped to the policy classloader (API lifetime) so chain eviction does not force recompilation.
+ * Holds a compiled XSD for a policy instance. Registry schemas re-resolve on each ensureReady so
+ * resource byte-cache TTL (e.g. floating {@code branch=latest}) can pick up new content; JAXP
+ * compile is still skipped when the digest is unchanged ({@link #SCHEMA_BY_DIGEST}).
  */
 public final class CompiledXsdSchemaHolder {
 
@@ -60,14 +61,11 @@ public final class CompiledXsdSchemaHolder {
     }
 
     public Completable ensureReady(HttpPlainExecutionContext ctx) {
-        if (compiledSchema != null) {
+        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
             return Completable.complete();
         }
         if (initializationFailure != null) {
             return Completable.error(initializationFailure);
-        }
-        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
-            return Completable.complete();
         }
         ResourceManager resourceManager = ctx.getComponent(ResourceManager.class);
         return load(resourceManager).ignoreElement();
@@ -83,9 +81,6 @@ public final class CompiledXsdSchemaHolder {
             if (cached != null) {
                 return cached;
             }
-            if (compiledSchema != null) {
-                return Maybe.just(compiledSchema);
-            }
             if (initializationFailure != null) {
                 return Maybe.error(initializationFailure);
             }
@@ -94,12 +89,15 @@ public final class CompiledXsdSchemaHolder {
                 .resolveReactive()
                 .doOnSuccess(schema -> {
                     synchronized (lock) {
-                        if (compiledSchema == null) {
-                            compiledSchema = schema;
-                        }
+                        compiledSchema = schema;
                     }
                 })
                 .doOnError(this::recordFailure)
+                .doFinally(() -> {
+                    synchronized (lock) {
+                        inFlight = null;
+                    }
+                })
                 .cache();
             inFlight = cached;
             return cached;
