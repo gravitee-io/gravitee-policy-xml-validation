@@ -34,7 +34,7 @@
     </parent>
 
     <properties>
-        <gravitee-bom.version>8.3.67</gravitee-bom.version>
+        <gravitee-bom.version>9.0.9</gravitee-bom.version>
         <gravitee-apim.version>4.9.35</gravitee-apim.version>
         <!-- V4 reactive HttpPolicy APIs require gateway-api 6.x -->
         <gravitee-gateway-api.version>6.4.0</gravitee-gateway-api.version>
