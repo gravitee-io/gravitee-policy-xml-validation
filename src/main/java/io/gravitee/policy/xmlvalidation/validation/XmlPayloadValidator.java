@@ -101,8 +101,9 @@ public final class XmlPayloadValidator {
     }
 
     /**
-     * Collapse exact duplicates and the redundant Xerces {@code cvc-type.*} companion that repeats a
-     * more specific facet code at the same location. Distinct constraint codes at that location are kept.
+     * Drop only exact duplicates ({@code line:column:code:message}) and the redundant Xerces
+     * {@code cvc-type.*} companion of a more specific facet error at the same location.
+     * Distinct messages that share a code (several attributes on one start tag) are kept.
      */
     static List<XmlValidationViolation> dedupe(List<XmlValidationViolation> errors) {
         Map<String, List<XmlValidationViolation>> byLocation = new LinkedHashMap<>();
@@ -112,18 +113,19 @@ public final class XmlPayloadValidator {
         List<XmlValidationViolation> kept = new ArrayList<>();
         for (List<XmlValidationViolation> atLocation : byLocation.values()) {
             boolean hasSpecific = atLocation.stream().anyMatch(violation -> !isGenericTypeCode(violation.code()));
-            Map<String, XmlValidationViolation> byCode = new LinkedHashMap<>();
+            Map<String, XmlValidationViolation> byIdentity = new LinkedHashMap<>();
             for (XmlValidationViolation violation : atLocation) {
                 if (hasSpecific && isGenericTypeCode(violation.code())) {
                     continue;
                 }
-                String codeKey = violation.code() == null ? "" : violation.code();
-                XmlValidationViolation existing = byCode.get(codeKey);
+                String identity =
+                    (violation.code() == null ? "" : violation.code()) + "\0" + (violation.message() == null ? "" : violation.message());
+                XmlValidationViolation existing = byIdentity.get(identity);
                 if (existing == null || isRicher(violation, existing)) {
-                    byCode.put(codeKey, violation);
+                    byIdentity.put(identity, violation);
                 }
             }
-            kept.addAll(byCode.values());
+            kept.addAll(byIdentity.values());
         }
         return List.copyOf(kept);
     }

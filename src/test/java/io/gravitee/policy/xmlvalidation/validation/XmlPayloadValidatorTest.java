@@ -125,7 +125,68 @@ class XmlPayloadValidatorTest {
         XmlValidationViolation duplicate = new XmlValidationViolation(2, 10, null, "pattern again", "cvc-pattern-valid", null);
 
         assertThat(XmlPayloadValidator.dedupe(List.of(generic, pattern, length, duplicate)))
-            .extracting(XmlValidationViolation::code)
-            .containsExactly("cvc-pattern-valid", "cvc-length-valid");
+            .extracting(XmlValidationViolation::message)
+            .containsExactly("pattern", "length", "pattern again");
     }
+
+    @Test
+    void shouldReportEveryMissingRequiredAttribute() {
+        CompiledXsdSchema schema = XsdSchemaCompiler.compile(ATTRIBUTE_XSD, SchemaSource.INLINE);
+        XmlValidationResult result = XmlPayloadValidator.validate(schema, "<order><item/></order>");
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.violations())
+            .extracting(XmlValidationViolation::message)
+            .anyMatch(message -> message.contains("'a'"));
+        assertThat(result.violations())
+            .extracting(XmlValidationViolation::message)
+            .anyMatch(message -> message.contains("'b'"));
+    }
+
+    @Test
+    void shouldReportPatternErrorsForEachAttribute() {
+        CompiledXsdSchema schema = XsdSchemaCompiler.compile(ATTRIBUTE_XSD, SchemaSource.INLINE);
+        XmlValidationResult result = XmlPayloadValidator.validate(schema, "<order><item a=\"x\" b=\"y\"/></order>");
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.violations())
+            .extracting(XmlValidationViolation::message)
+            .anyMatch(message -> message.contains("'a'"));
+        assertThat(result.violations())
+            .extracting(XmlValidationViolation::message)
+            .anyMatch(message -> message.contains("'b'"));
+    }
+
+    @Test
+    void shouldIndexRepeatedSiblingElements() {
+        CompiledXsdSchema schema = XsdSchemaCompiler.compile(ATTRIBUTE_XSD, SchemaSource.INLINE);
+        XmlValidationResult result = XmlPayloadValidator.validate(
+            schema,
+            "<order><item a=\"x\" b=\"ABC\"/><item a=\"x\" b=\"ABC\"/></order>"
+        );
+        assertThat(result.violations()).extracting(XmlValidationViolation::path).contains("/order/item", "/order/item[2]");
+    }
+
+    private static final String ATTRIBUTE_XSD = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="order">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="item" maxOccurs="unbounded">
+                  <xs:complexType>
+                    <xs:attribute name="a" use="required">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string"><xs:pattern value="[A-Z]{3}"/></xs:restriction>
+                      </xs:simpleType>
+                    </xs:attribute>
+                    <xs:attribute name="b" use="required">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string"><xs:pattern value="[A-Z]{3}"/></xs:restriction>
+                      </xs:simpleType>
+                    </xs:attribute>
+                  </xs:complexType>
+                </xs:element>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>""";
 }
