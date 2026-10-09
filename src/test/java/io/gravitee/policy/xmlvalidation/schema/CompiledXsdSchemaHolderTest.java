@@ -96,6 +96,53 @@ class CompiledXsdSchemaHolderTest {
     }
 
     @Test
+    void shouldReResolveRegistrySchemaOnEachEnsureReady() {
+        XmlValidationPolicyConfiguration configuration = registryConfig();
+        AtomicInteger fetches = new AtomicInteger();
+        ArtifactSchemaLookup lookup = readyLookup(fetches, Maybe.just(bundle("digest-refresh")));
+
+        ResourceManager resourceManager = mock(ResourceManager.class);
+        when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        when(ctx.getComponent(ResourceManager.class)).thenReturn(resourceManager);
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+
+        holder.ensureReady(ctx).blockingAwait();
+        CompiledXsdSchema first = holder.compiledSchema();
+        holder.ensureReady(ctx).blockingAwait();
+
+        assertThat(fetches.get()).isEqualTo(2);
+        assertThat(holder.compiledSchema()).isSameAs(first);
+    }
+
+    @Test
+    void shouldRecompileWhenBundleDigestChanges() {
+        XmlValidationPolicyConfiguration configuration = registryConfig();
+        AtomicInteger fetches = new AtomicInteger();
+        ArtifactSchemaLookup lookup = mock(ArtifactSchemaLookup.class);
+        when(lookup.isReady()).thenReturn(true);
+        when(lookup.getArtifactSchema("g", "a", "1", false)).thenAnswer(invocation ->
+            Maybe.just(bundle("digest-" + fetches.incrementAndGet()))
+        );
+
+        ResourceManager resourceManager = mock(ResourceManager.class);
+        when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        when(ctx.getComponent(ResourceManager.class)).thenReturn(resourceManager);
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+        holder.ensureReady(ctx).blockingAwait();
+        CompiledXsdSchema first = holder.compiledSchema();
+        holder.ensureReady(ctx).blockingAwait();
+
+        assertThat(fetches.get()).isEqualTo(2);
+        assertThat(holder.compiledSchema()).isNotSameAs(first);
+    }
+
+    @Test
     void shouldRetryAfterTransientUnreachableFailure() {
         XmlValidationPolicyConfiguration configuration = registryConfig();
         AtomicInteger fetches = new AtomicInteger();
