@@ -21,6 +21,7 @@ import io.gravitee.policy.xmlvalidation.configuration.schema.SchemaSource;
 import io.gravitee.resource.api.ResourceManager;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -155,6 +156,19 @@ public final class CompiledXsdSchemaHolder {
             compiledBundleDigest = reported != null && !reported.isBlank() ? reported : null;
         }
         return compiled;
+    }
+
+    /**
+     * Same as {@link #compiledFrom}, but schedules JAXP compile on the computation pool only when the
+     * digest changed. Unchanged digests stay on the calling thread (event loop after a cache hit).
+     */
+    Maybe<CompiledXsdSchema> compiledFromReactive(io.gravitee.resource.schema_registry.api.ArtifactSchemaBundle bundle) {
+        String reported = bundle == null ? null : bundle.digest();
+        CompiledXsdSchema current = compiledSchema;
+        if (current != null && reported != null && !reported.isBlank() && reported.equals(compiledBundleDigest)) {
+            return Maybe.just(current);
+        }
+        return Maybe.fromCallable(() -> compiledFrom(bundle)).subscribeOn(Schedulers.computation());
     }
 
     public CompiledXsdSchema compiledSchema() {
