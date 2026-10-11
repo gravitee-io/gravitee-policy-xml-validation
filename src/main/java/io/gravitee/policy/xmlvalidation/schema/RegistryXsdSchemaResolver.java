@@ -25,7 +25,6 @@ import io.gravitee.resource.schema_registry.api.SchemaLoadException;
 import io.gravitee.resource.schema_registry.api.SchemaRegistryNotReadyException;
 import io.gravitee.resource.schema_registry.api.SchemaRegistryUnreachableException;
 import io.reactivex.rxjava3.core.Maybe;
-import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public final class RegistryXsdSchemaResolver implements XsdSchemaResolver {
 
@@ -33,10 +32,16 @@ public final class RegistryXsdSchemaResolver implements XsdSchemaResolver {
 
     private final XmlValidationPolicyConfiguration configuration;
     private final ResourceManager resourceManager;
+    private final CompiledXsdSchemaHolder holder;
 
-    public RegistryXsdSchemaResolver(XmlValidationPolicyConfiguration configuration, ResourceManager resourceManager) {
+    public RegistryXsdSchemaResolver(
+        XmlValidationPolicyConfiguration configuration,
+        ResourceManager resourceManager,
+        CompiledXsdSchemaHolder holder
+    ) {
         this.configuration = configuration;
         this.resourceManager = resourceManager;
+        this.holder = holder;
     }
 
     @Override
@@ -134,24 +139,25 @@ public final class RegistryXsdSchemaResolver implements XsdSchemaResolver {
                     )
                 )
             )
-            // JAXP compile must not run on the Vert.x event loop.
-            .observeOn(Schedulers.computation())
-            .map(bundle -> {
-                try {
-                    return XsdSchemaCompiler.compile(bundle);
-                } catch (XsdSchemaResolutionException ex) {
-                    throw ex;
-                } catch (RuntimeException ex) {
-                    throw new XsdSchemaResolutionException(
-                        "Unable to compile XSD schema: " + ex.getMessage(),
-                        SchemaSource.REGISTRY,
-                        XsdSchemaResolutionException.RegistryCoordinates.of(registryResource, groupId, artifactId, version),
-                        ex,
-                        XsdSchemaResolutionException.FailureKind.COMPILE
-                    );
-                }
-            })
-            // Return to a non-event-loop scheduler is already set; mapProviderFailure stays typed.
+            // Compile off the event loop only when the digest changed; reuse stays on the caller thread.
+            .flatMap(bundle ->
+                holder
+                    .compiledFromReactive(bundle)
+                    .onErrorResumeNext(error -> {
+                        if (error instanceof XsdSchemaResolutionException) {
+                            return Maybe.error(error);
+                        }
+                        return Maybe.error(
+                            new XsdSchemaResolutionException(
+                                "Unable to compile XSD schema: " + error.getMessage(),
+                                SchemaSource.REGISTRY,
+                                XsdSchemaResolutionException.RegistryCoordinates.of(registryResource, groupId, artifactId, version),
+                                error,
+                                XsdSchemaResolutionException.FailureKind.COMPILE
+                            )
+                        );
+                    })
+            )
             .onErrorResumeNext(error -> mapProviderFailure(error, registryResource, groupId, artifactId, version));
     }
 

@@ -34,6 +34,10 @@ import org.junit.jupiter.api.Test;
 
 class RegistryXsdSchemaResolverTest {
 
+    private static RegistryXsdSchemaResolver resolver(XmlValidationPolicyConfiguration configuration, ResourceManager resourceManager) {
+        return new RegistryXsdSchemaResolver(configuration, resourceManager, CompiledXsdSchemaHolder.forConfiguration(configuration));
+    }
+
     private static final String XSD = """
         <?xml version="1.0" encoding="UTF-8"?>
         <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -65,7 +69,7 @@ class RegistryXsdSchemaResolverTest {
         ResourceManager resourceManager = mock(ResourceManager.class);
         when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
 
-        CompiledXsdSchema compiled = new RegistryXsdSchemaResolver(configuration, resourceManager).resolveReactive().blockingGet();
+        CompiledXsdSchema compiled = resolver(configuration, resourceManager).resolveReactive().blockingGet();
         XmlValidationResult result = XmlPayloadValidator.validate(compiled, "<message>ok</message>");
         assertThat(result.isValid()).isTrue();
     }
@@ -85,7 +89,7 @@ class RegistryXsdSchemaResolverTest {
         ResourceManager resourceManager = mock(ResourceManager.class);
         when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
 
-        new RegistryXsdSchemaResolver(configuration, resourceManager)
+        resolver(configuration, resourceManager)
             .resolveReactive()
             .test()
             .awaitDone(5, TimeUnit.SECONDS)
@@ -113,7 +117,7 @@ class RegistryXsdSchemaResolverTest {
         when(resourceManager.getResource("schema-registry", ArtifactSchemaLookup.class)).thenReturn(lookup);
 
         // observeOn(computation) makes empty→error async; await completion before assert.
-        new RegistryXsdSchemaResolver(configuration, resourceManager)
+        resolver(configuration, resourceManager)
             .resolveReactive()
             .test()
             .awaitDone(5, TimeUnit.SECONDS)

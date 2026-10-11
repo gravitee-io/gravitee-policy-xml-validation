@@ -27,10 +27,14 @@ public final class XsdSchemaResolverFactory {
 
     private XsdSchemaResolverFactory() {}
 
-    public static XsdSchemaResolver create(XmlValidationPolicyConfiguration configuration, ResourceManager resourceManager) {
+    public static XsdSchemaResolver create(
+        XmlValidationPolicyConfiguration configuration,
+        ResourceManager resourceManager,
+        CompiledXsdSchemaHolder holder
+    ) {
         if (configuration.getSchemaSource() != SchemaSource.REGISTRY) {
             throw new IllegalArgumentException("XsdSchemaResolverFactory only supports schemaSource=registry");
         }
-        return new RegistryXsdSchemaResolver(configuration, resourceManager);
+        return new RegistryXsdSchemaResolver(configuration, resourceManager, holder);
     }
 }
