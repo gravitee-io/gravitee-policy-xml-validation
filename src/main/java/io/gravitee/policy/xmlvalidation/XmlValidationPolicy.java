@@ -131,6 +131,9 @@ public class XmlValidationPolicy extends XmlValidationPolicyV3 implements HttpPo
         map.put("line", violation.line());
         map.put("column", violation.column());
         map.put("element", violation.element());
+        if (violation.path() != null) {
+            map.put("path", violation.path());
+        }
         map.put(MESSAGE_FIELD, violation.message());
         if (violation.code() != null) {
             map.put("code", violation.code());

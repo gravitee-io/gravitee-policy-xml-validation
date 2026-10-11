@@ -21,26 +21,33 @@ import io.gravitee.policy.xmlvalidation.configuration.schema.SchemaSource;
 import io.gravitee.resource.api.ResourceManager;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.xml.validation.Schema;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Holds a compiled XSD for a policy instance. Registry schemas use a static digest→Schema cache
- * scoped to the policy classloader (API lifetime) so chain eviction does not force recompilation.
+ * Holds a compiled XSD for a policy instance. Registry schemas re-resolve on each ensureReady so
+ * resource byte-cache TTL (e.g. floating {@code branch=latest}) can pick up new content; JAXP
+ * compile is still skipped when the digest is unchanged ({@link #SCHEMA_BY_DIGEST}).
  */
+@Slf4j
 public final class CompiledXsdSchemaHolder {
 
     /**
      * API-classloader-scoped: each API's policy ClassLoader has its own static map.
+     * Digests are not evicted when a floating version moves on: another policy instance in this
+     * classloader may still be validating against the previous bytes.
      */
     private static final ConcurrentHashMap<String, Schema> SCHEMA_BY_DIGEST = new ConcurrentHashMap<>();
 
     private final XmlValidationPolicyConfiguration configuration;
     private final Object lock = new Object();
     private volatile CompiledXsdSchema compiledSchema;
+    private volatile String compiledBundleDigest;
     private volatile XsdSchemaResolutionException initializationFailure;
     private volatile Maybe<CompiledXsdSchema> inFlight;
 
@@ -60,14 +67,11 @@ public final class CompiledXsdSchemaHolder {
     }
 
     public Completable ensureReady(HttpPlainExecutionContext ctx) {
-        if (compiledSchema != null) {
+        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
             return Completable.complete();
         }
         if (initializationFailure != null) {
             return Completable.error(initializationFailure);
-        }
-        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
-            return Completable.complete();
         }
         ResourceManager resourceManager = ctx.getComponent(ResourceManager.class);
         return load(resourceManager).ignoreElement();
@@ -83,27 +87,49 @@ public final class CompiledXsdSchemaHolder {
             if (cached != null) {
                 return cached;
             }
-            if (compiledSchema != null) {
-                return Maybe.just(compiledSchema);
-            }
             if (initializationFailure != null) {
                 return Maybe.error(initializationFailure);
             }
-            XsdSchemaResolver resolver = XsdSchemaResolverFactory.create(configuration, resourceManager);
+            XsdSchemaResolver resolver = XsdSchemaResolverFactory.create(configuration, resourceManager, this);
             cached = resolver
                 .resolveReactive()
+                .onErrorResumeNext(this::keepCompiledSchema)
                 .doOnSuccess(schema -> {
                     synchronized (lock) {
-                        if (compiledSchema == null) {
-                            compiledSchema = schema;
-                        }
+                        compiledSchema = schema;
                     }
                 })
                 .doOnError(this::recordFailure)
+                .doFinally(() -> {
+                    synchronized (lock) {
+                        inFlight = null;
+                    }
+                })
                 .cache();
             inFlight = cached;
             return cached;
         }
+    }
+
+    /**
+     * A later lookup blip must not fail requests that already have a compiled schema.
+     * Configuration errors still fail: they are not transient, and nothing useful is left to validate with
+     * when no schema has been compiled yet.
+     */
+    private Maybe<CompiledXsdSchema> keepCompiledSchema(Throwable error) {
+        CompiledXsdSchema current = compiledSchema;
+        if (current == null || isConfigurationFailure(error)) {
+            return Maybe.error(error);
+        }
+        log.warn("Schema re-resolution failed; validating with the last compiled schema: {}", error.getMessage());
+        return Maybe.just(current);
+    }
+
+    private static boolean isConfigurationFailure(Throwable error) {
+        return (
+            error instanceof XsdSchemaResolutionException xsre &&
+            xsre.getFailureKind() == XsdSchemaResolutionException.FailureKind.CONFIGURATION
+        );
     }
 
     private void recordFailure(Throwable error) {
@@ -135,6 +161,38 @@ public final class CompiledXsdSchemaHolder {
             }
             inFlight = null;
         }
+    }
+
+    /**
+     * Reuse the compiled schema when the resource returns the same bundle digest. A different digest
+     * compiles again; {@link XsdSchemaCompiler} still recomputes the digest from bytes on that path.
+     */
+    CompiledXsdSchema compiledFrom(io.gravitee.resource.schema_registry.api.ArtifactSchemaBundle bundle) {
+        String reported = bundle == null ? null : bundle.digest();
+        CompiledXsdSchema current = compiledSchema;
+        if (current != null && reported != null && !reported.isBlank() && reported.equals(compiledBundleDigest)) {
+            return current;
+        }
+        CompiledXsdSchema compiled = XsdSchemaCompiler.compile(bundle);
+        synchronized (lock) {
+            compiledSchema = compiled;
+            // A blank digest cannot be trusted as a cache key for the next request.
+            compiledBundleDigest = reported != null && !reported.isBlank() ? reported : null;
+        }
+        return compiled;
+    }
+
+    /**
+     * Same as {@link #compiledFrom}, but schedules JAXP compile on the computation pool only when the
+     * digest changed. Unchanged digests stay on the calling thread (event loop after a cache hit).
+     */
+    Maybe<CompiledXsdSchema> compiledFromReactive(io.gravitee.resource.schema_registry.api.ArtifactSchemaBundle bundle) {
+        String reported = bundle == null ? null : bundle.digest();
+        CompiledXsdSchema current = compiledSchema;
+        if (current != null && reported != null && !reported.isBlank() && reported.equals(compiledBundleDigest)) {
+            return Maybe.just(current);
+        }
+        return Maybe.fromCallable(() -> compiledFrom(bundle)).subscribeOn(Schedulers.computation());
     }
 
     public CompiledXsdSchema compiledSchema() {
