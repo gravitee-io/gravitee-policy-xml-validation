@@ -1,3 +1,10 @@
+## [2.1.2](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.1.1...2.1.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* accept legacy XML Validation configs without schemaSource ([8312f4d](https://github.com/gravitee-io/gravitee-policy-xml-validation/commit/8312f4d763db9eea8bb6b07a16f2c25c7b0cb119))
+
 ## [2.1.1](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.1.0...2.1.1) (2026-10-12)
 
 
