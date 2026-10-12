@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.1.0...2.1.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* refresh registry schemas after cache expiry ([55fe73f](https://github.com/gravitee-io/gravitee-policy-xml-validation/commit/55fe73f55baa8d79c8300f13b538fe530fd07525))
+
 # [2.1.0](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.0.0...2.1.0) (2026-10-06)
 
 
