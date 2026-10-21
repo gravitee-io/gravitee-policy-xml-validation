@@ -1,3 +1,10 @@
+## [2.1.3](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.1.2...2.1.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* reject requests when inline XSD compilation fails ([fc42dfd](https://github.com/gravitee-io/gravitee-policy-xml-validation/commit/fc42dfde173e199802ce683b2a3441da7995028a))
+
 ## [2.1.2](https://github.com/gravitee-io/gravitee-policy-xml-validation/compare/2.1.1...2.1.2) (2026-10-12)
 
 
