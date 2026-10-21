@@ -43,7 +43,9 @@ public class XmlValidationPolicyV3 {
 
     protected static final String XML_INVALID_PAYLOAD_KEY = "XML_INVALID_PAYLOAD";
     protected static final String XML_INVALID_FORMAT_KEY = "XML_INVALID_FORMAT";
+    protected static final String XML_VALIDATION_SCHEMA_COMPILE_FAILED = "XML_VALIDATION_SCHEMA_COMPILE_FAILED";
     protected static final String BAD_REQUEST = "Bad Request";
+    private static final String COMPILE_FAILED_CLIENT_MESSAGE = "Unable to compile the XSD schema";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(XmlValidationPolicyV3.class);
 
@@ -106,7 +108,27 @@ public class XmlValidationPolicyV3 {
                             MediaType.APPLICATION_XML
                         )
                     );
-                } catch (XsdSchemaResolutionException | IllegalStateException ex) {
+                } catch (XsdSchemaResolutionException ex) {
+                    request.metrics().setMessage(ex.getMessage());
+                    if (ex.getFailureKind() == XsdSchemaResolutionException.FailureKind.COMPILE) {
+                        policyChain.streamFailWith(
+                            PolicyResult.failure(
+                                XML_VALIDATION_SCHEMA_COMPILE_FAILED,
+                                HttpStatusCode.INTERNAL_SERVER_ERROR_500,
+                                COMPILE_FAILED_CLIENT_MESSAGE,
+                                MediaType.TEXT_PLAIN
+                            )
+                        );
+                    } else {
+                        sendErrorResponse(
+                            executionContext,
+                            policyChain,
+                            HttpStatusCode.BAD_REQUEST_400,
+                            XML_INVALID_FORMAT_KEY,
+                            ex.getMessage()
+                        );
+                    }
+                } catch (IllegalStateException ex) {
                     request.metrics().setMessage(ex.getMessage());
                     sendErrorResponse(
                         executionContext,

@@ -58,20 +58,49 @@ public final class CompiledXsdSchemaHolder {
     public static CompiledXsdSchemaHolder forConfiguration(XmlValidationPolicyConfiguration configuration) {
         CompiledXsdSchemaHolder holder = new CompiledXsdSchemaHolder(configuration);
         if (configuration.getSchemaSource() == SchemaSource.INLINE) {
-            String content = configuration.getXsdSchema();
-            String digest = sha256(content == null ? new byte[0] : content.getBytes(StandardCharsets.UTF_8));
-            Schema schema = SCHEMA_BY_DIGEST.computeIfAbsent(digest, d -> XsdSchemaCompiler.compile(content, SchemaSource.INLINE).schema());
-            holder.compiledSchema = new CompiledXsdSchema(schema);
+            try {
+                String content = configuration.getXsdSchema();
+                String digest = sha256(content == null ? new byte[0] : content.getBytes(StandardCharsets.UTF_8));
+                Schema schema = SCHEMA_BY_DIGEST.computeIfAbsent(digest, d ->
+                    XsdSchemaCompiler.compile(content, SchemaSource.INLINE).schema()
+                );
+                holder.compiledSchema = new CompiledXsdSchema(schema);
+            } catch (XsdSchemaResolutionException ex) {
+                holder.initializationFailure = wrapWithCompileKind(ex);
+                log.error("Inline XSD compile failed; validation will fail closed: {}", ex.getMessage());
+            } catch (Exception ex) {
+                holder.initializationFailure = new XsdSchemaResolutionException(
+                    "Inline XSD compile failed: " + ex.getMessage(),
+                    SchemaSource.INLINE,
+                    null,
+                    ex,
+                    XsdSchemaResolutionException.FailureKind.COMPILE
+                );
+                log.error("Inline XSD compile failed; validation will fail closed: {}", ex.getMessage());
+            }
         }
         return holder;
     }
 
-    public Completable ensureReady(HttpPlainExecutionContext ctx) {
-        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
-            return Completable.complete();
+    private static XsdSchemaResolutionException wrapWithCompileKind(XsdSchemaResolutionException ex) {
+        if (ex.getFailureKind() == XsdSchemaResolutionException.FailureKind.COMPILE) {
+            return ex;
         }
+        return new XsdSchemaResolutionException(
+            ex.getMessage(),
+            ex.getSchemaSource(),
+            null,
+            ex,
+            XsdSchemaResolutionException.FailureKind.COMPILE
+        );
+    }
+
+    public Completable ensureReady(HttpPlainExecutionContext ctx) {
         if (initializationFailure != null) {
             return Completable.error(initializationFailure);
+        }
+        if (configuration.getSchemaSource() == SchemaSource.INLINE) {
+            return Completable.complete();
         }
         ResourceManager resourceManager = ctx.getComponent(ResourceManager.class);
         return load(resourceManager).ignoreElement();
