@@ -96,6 +96,71 @@ class CompiledXsdSchemaHolderTest {
     }
 
     @Test
+    void shouldFailClosedWhenInlineXsdIsInvalid() {
+        XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
+        configuration.setXsdSchema("not valid XSD at all");
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        holder
+            .ensureReady(ctx)
+            .test()
+            .awaitDone(5, java.util.concurrent.TimeUnit.SECONDS)
+            .assertError(
+                error ->
+                    error instanceof XsdSchemaResolutionException xsre &&
+                    xsre.getFailureKind() == XsdSchemaResolutionException.FailureKind.COMPILE &&
+                    xsre.getSchemaSource() == SchemaSource.INLINE
+            );
+    }
+
+    @Test
+    void shouldFailClosedWhenInlineXsdIsEmpty() {
+        XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
+        configuration.setXsdSchema("");
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        holder
+            .ensureReady(ctx)
+            .test()
+            .awaitDone(5, java.util.concurrent.TimeUnit.SECONDS)
+            .assertError(
+                error ->
+                    error instanceof XsdSchemaResolutionException xsre &&
+                    xsre.getFailureKind() == XsdSchemaResolutionException.FailureKind.COMPILE
+            );
+    }
+
+    @Test
+    void shouldFailClosedWhenInlineXsdImportsExternalUrl() {
+        String xsdWithImport = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <xs:import namespace="http://example.com/schema" schemaLocation="http://example.com/schema.xsd"/>
+              <xs:element name="message" type="xs:string"/>
+            </xs:schema>""";
+
+        XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
+        configuration.setXsdSchema(xsdWithImport);
+
+        CompiledXsdSchemaHolder holder = CompiledXsdSchemaHolder.forConfiguration(configuration);
+
+        HttpPlainExecutionContext ctx = mock(HttpPlainExecutionContext.class);
+        holder
+            .ensureReady(ctx)
+            .test()
+            .awaitDone(5, java.util.concurrent.TimeUnit.SECONDS)
+            .assertError(
+                error ->
+                    error instanceof XsdSchemaResolutionException xsre &&
+                    xsre.getFailureKind() == XsdSchemaResolutionException.FailureKind.COMPILE
+            );
+    }
+
+    @Test
     void shouldReResolveRegistrySchemaOnEachEnsureReady() {
         XmlValidationPolicyConfiguration configuration = registryConfig();
         AtomicInteger fetches = new AtomicInteger();

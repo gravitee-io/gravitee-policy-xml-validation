@@ -197,4 +197,30 @@ class XmlValidationTest {
 
         verify(mockPolicychain, times(1)).streamFailWith(any(PolicyResult.class));
     }
+
+    @Test
+    void shouldFailClosedWithGenericMessageWhenInlineXsdCannotCompileOnV3() {
+        stubRequestMetrics();
+        XmlValidationPolicyConfiguration badConfig = new XmlValidationPolicyConfiguration();
+        badConfig.setSchemaSource(SchemaSource.INLINE);
+        badConfig.setXsdSchema("not a valid XSD");
+
+        XmlValidationPolicyV3 badPolicy = new XmlValidationPolicyV3(badConfig);
+        ReadWriteStream<Buffer> readWriteStream = badPolicy.onRequestContent(
+            mockRequest,
+            mockResponse,
+            mockExecutionContext,
+            mockPolicychain
+        );
+        readWriteStream.write(validXmlContent);
+        readWriteStream.end();
+
+        ArgumentCaptor<PolicyResult> policyResult = ArgumentCaptor.forClass(PolicyResult.class);
+        verify(mockPolicychain, times(1)).streamFailWith(policyResult.capture());
+        PolicyResult value = policyResult.getValue();
+        assertThat(value.statusCode()).isEqualTo(HttpStatusCode.INTERNAL_SERVER_ERROR_500);
+        assertThat(value.key()).isEqualTo("XML_VALIDATION_SCHEMA_COMPILE_FAILED");
+        assertThat(value.message()).isEqualTo("Unable to compile the XSD schema");
+        assertThat(value.message()).doesNotContain("Content is not allowed in prolog");
+    }
 }

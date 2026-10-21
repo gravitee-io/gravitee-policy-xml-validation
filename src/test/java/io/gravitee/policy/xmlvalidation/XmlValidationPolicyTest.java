@@ -213,6 +213,27 @@ class XmlValidationPolicyTest {
     }
 
     @Test
+    void shouldFailClosedWithGenericMessageWhenInlineXsdCannotCompile() {
+        XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
+        configuration.setXsdSchema("not a valid XSD");
+
+        when(ctx.request()).thenReturn(request);
+        when(request.bodyOrEmpty()).thenReturn(Single.just(Buffer.buffer("<order/>")));
+        when(ctx.metrics()).thenReturn(mock(Metrics.class));
+        when(ctx.interruptWith(any())).thenReturn(Completable.complete());
+
+        new XmlValidationPolicy(configuration).onRequest(ctx).test().awaitDone(5, TimeUnit.SECONDS).assertComplete();
+
+        ArgumentCaptor<ExecutionFailure> failureCaptor = ArgumentCaptor.forClass(ExecutionFailure.class);
+        verify(ctx).interruptWith(failureCaptor.capture());
+        ExecutionFailure failure = failureCaptor.getValue();
+        assertThat(failure.statusCode()).isEqualTo(500);
+        assertThat(failure.key()).isEqualTo(XmlValidationPolicy.XML_VALIDATION_SCHEMA_COMPILE_FAILED);
+        assertThat(failure.message()).contains("Unable to compile the XSD schema");
+        assertThat(failure.message()).doesNotContain("Content is not allowed in prolog");
+    }
+
+    @Test
     void shouldSurfaceGenericClosureLimitMessageWhenUnrecognized() {
         XmlValidationPolicyConfiguration configuration = new XmlValidationPolicyConfiguration();
         configuration.setSchemaSource(SchemaSource.REGISTRY);
