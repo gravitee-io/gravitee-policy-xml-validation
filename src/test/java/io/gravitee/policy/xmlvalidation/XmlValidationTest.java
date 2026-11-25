@@ -31,6 +31,8 @@ import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.v3.xmlvalidation.XmlValidationPolicyV3;
 import io.gravitee.policy.xmlvalidation.configuration.XmlValidationPolicyConfiguration;
 import io.gravitee.policy.xmlvalidation.configuration.schema.SchemaSource;
+import io.gravitee.policy.xmlvalidation.schema.CompiledXsdSchema;
+import io.gravitee.policy.xmlvalidation.schema.XsdSchemaResolutionException;
 import io.gravitee.reporter.api.http.Metrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -222,5 +224,63 @@ class XmlValidationTest {
         assertThat(value.key()).isEqualTo("XML_VALIDATION_SCHEMA_COMPILE_FAILED");
         assertThat(value.message()).isEqualTo("Unable to compile the XSD schema");
         assertThat(value.message()).doesNotContain("Content is not allowed in prolog");
+    }
+
+    @Test
+    void shouldNotSendTheSchemaResolutionFailureTextToTheCallerOnV3() {
+        stubRequestMetrics();
+        String internalDetail = "GET https://registry.internal:8443/apis/groups/acme/artifacts/order failed: 401 token expired";
+        XmlValidationPolicyV3 failingPolicy = policyFailingWith(
+            new XsdSchemaResolutionException(
+                internalDetail,
+                SchemaSource.REGISTRY,
+                null,
+                null,
+                XsdSchemaResolutionException.FailureKind.UNREACHABLE
+            )
+        );
+
+        PolicyResult value = sendValidPayload(failingPolicy);
+
+        assertThat(value.statusCode()).isEqualTo(HttpStatusCode.BAD_REQUEST_400);
+        assertThat(value.key()).isEqualTo("XML_INVALID_FORMAT");
+        assertThat(value.message()).isEqualTo("Schema registry is temporarily unavailable");
+        assertThat(metrics.getMessage()).isEqualTo(internalDetail);
+    }
+
+    @Test
+    void shouldNotSendTheIllegalStateTextToTheCallerOnV3() {
+        stubRequestMetrics();
+        XmlValidationPolicyV3 failingPolicy = policyFailingWith(new IllegalStateException("Internal state: holder 0x7f3a not initialized"));
+
+        PolicyResult value = sendValidPayload(failingPolicy);
+
+        assertThat(value.statusCode()).isEqualTo(HttpStatusCode.BAD_REQUEST_400);
+        assertThat(value.message()).isEqualTo("Unable to resolve the XSD schema");
+        assertThat(metrics.getMessage()).isEqualTo("Internal state: holder 0x7f3a not initialized");
+    }
+
+    private XmlValidationPolicyV3 policyFailingWith(RuntimeException failure) {
+        return new XmlValidationPolicyV3(configuration) {
+            @Override
+            protected CompiledXsdSchema compiledSchema() {
+                throw failure;
+            }
+        };
+    }
+
+    private PolicyResult sendValidPayload(XmlValidationPolicyV3 policyUnderTest) {
+        ReadWriteStream<Buffer> readWriteStream = policyUnderTest.onRequestContent(
+            mockRequest,
+            mockResponse,
+            mockExecutionContext,
+            mockPolicychain
+        );
+        readWriteStream.write(validXmlContent);
+        readWriteStream.end();
+
+        ArgumentCaptor<PolicyResult> policyResult = ArgumentCaptor.forClass(PolicyResult.class);
+        verify(mockPolicychain, times(1)).streamFailWith(policyResult.capture());
+        return policyResult.getValue();
     }
 }

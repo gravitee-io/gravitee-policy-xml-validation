@@ -34,6 +34,7 @@ import io.gravitee.policy.xmlvalidation.schema.CompiledXsdSchemaHolder;
 import io.gravitee.policy.xmlvalidation.schema.XsdSchemaResolutionException;
 import io.gravitee.policy.xmlvalidation.validation.XmlPayloadValidator;
 import io.gravitee.policy.xmlvalidation.validation.XmlValidationResult;
+import io.gravitee.resource.schema_registry.api.SchemaClosureLimitExceededException;
 import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,16 @@ public class XmlValidationPolicyV3 {
     protected static final String XML_INVALID_FORMAT_KEY = "XML_INVALID_FORMAT";
     protected static final String XML_VALIDATION_SCHEMA_COMPILE_FAILED = "XML_VALIDATION_SCHEMA_COMPILE_FAILED";
     protected static final String BAD_REQUEST = "Bad Request";
-    private static final String COMPILE_FAILED_CLIENT_MESSAGE = "Unable to compile the XSD schema";
+    protected static final String CLIENT_MESSAGE_NOT_FOUND = "Referenced schema artifact was not found";
+    protected static final String CLIENT_MESSAGE_NOT_READY = "Schema registry is not ready";
+    protected static final String CLIENT_MESSAGE_UNREACHABLE = "Schema registry is temporarily unavailable";
+    protected static final String CLIENT_MESSAGE_COMPILE = "Unable to compile the XSD schema";
+    protected static final String CLIENT_MESSAGE_CLOSURE_LIMIT_ARTIFACTS = "Schema closure exceeds the maximum artifacts limit";
+    protected static final String CLIENT_MESSAGE_CLOSURE_LIMIT_BYTES = "Schema closure exceeds the maximum bytes limit";
+    protected static final String CLIENT_MESSAGE_CLOSURE_LIMIT_DEPTH = "Schema closure exceeds the maximum import depth limit";
+    protected static final String CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC = "Schema closure exceeds configured limits";
+    protected static final String CLIENT_MESSAGE_CONFIGURATION = "XML validation schema configuration is invalid";
+    protected static final String CLIENT_MESSAGE_OTHER = "Unable to resolve the XSD schema";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(XmlValidationPolicyV3.class);
 
@@ -89,7 +99,7 @@ public class XmlValidationPolicyV3 {
             @Override
             public void end() {
                 try {
-                    CompiledXsdSchema compiledXsdSchema = schemaHolder.compiledSchema();
+                    CompiledXsdSchema compiledXsdSchema = compiledSchema();
                     XmlValidationResult result = XmlPayloadValidator.validate(compiledXsdSchema, buffer.toString(StandardCharsets.UTF_8));
                     if (result.isValid()) {
                         super.write(buffer);
@@ -115,17 +125,18 @@ public class XmlValidationPolicyV3 {
                             PolicyResult.failure(
                                 XML_VALIDATION_SCHEMA_COMPILE_FAILED,
                                 HttpStatusCode.INTERNAL_SERVER_ERROR_500,
-                                COMPILE_FAILED_CLIENT_MESSAGE,
+                                CLIENT_MESSAGE_COMPILE,
                                 MediaType.TEXT_PLAIN
                             )
                         );
                     } else {
+                        // Keep the detail in the metrics only: it may hold internal registry text.
                         sendErrorResponse(
                             executionContext,
                             policyChain,
                             HttpStatusCode.BAD_REQUEST_400,
                             XML_INVALID_FORMAT_KEY,
-                            ex.getMessage()
+                            clientMessage(ex)
                         );
                     }
                 } catch (IllegalStateException ex) {
@@ -135,10 +146,45 @@ public class XmlValidationPolicyV3 {
                         policyChain,
                         HttpStatusCode.BAD_REQUEST_400,
                         XML_INVALID_FORMAT_KEY,
-                        ex.getMessage()
+                        CLIENT_MESSAGE_OTHER
                     );
                 }
             }
+        };
+    }
+
+    /**
+     * The compiled schema the payload is validated against.
+     */
+    protected CompiledXsdSchema compiledSchema() {
+        return schemaHolder.compiledSchema();
+    }
+
+    /**
+     * The message sent to the caller when the schema cannot be resolved. It never holds the text of the failure,
+     * which may come from the schema registry or an identity provider: that text is kept in the metrics and logs.
+     */
+    protected static String clientMessage(XsdSchemaResolutionException error) {
+        return switch (error.getFailureKind()) {
+            case NOT_FOUND -> CLIENT_MESSAGE_NOT_FOUND;
+            case NOT_READY -> CLIENT_MESSAGE_NOT_READY;
+            case UNREACHABLE -> CLIENT_MESSAGE_UNREACHABLE;
+            case COMPILE -> CLIENT_MESSAGE_COMPILE;
+            case CLOSURE_LIMIT -> closureLimitClientMessage(error.getClosureLimitKind());
+            case CONFIGURATION -> CLIENT_MESSAGE_CONFIGURATION;
+            case OTHER -> CLIENT_MESSAGE_OTHER;
+        };
+    }
+
+    private static String closureLimitClientMessage(SchemaClosureLimitExceededException.ClosureLimitKind limitKind) {
+        if (limitKind == null) {
+            return CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC;
+        }
+        return switch (limitKind) {
+            case ARTIFACTS -> CLIENT_MESSAGE_CLOSURE_LIMIT_ARTIFACTS;
+            case BYTES -> CLIENT_MESSAGE_CLOSURE_LIMIT_BYTES;
+            case IMPORT_DEPTH -> CLIENT_MESSAGE_CLOSURE_LIMIT_DEPTH;
+            case UNKNOWN -> CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC;
         };
     }
 
