@@ -28,7 +28,6 @@ import io.gravitee.policy.xmlvalidation.schema.CompiledXsdSchema;
 import io.gravitee.policy.xmlvalidation.schema.XsdSchemaResolutionException;
 import io.gravitee.policy.xmlvalidation.validation.XmlPayloadValidator;
 import io.gravitee.policy.xmlvalidation.validation.XmlValidationViolation;
-import io.gravitee.resource.schema_registry.api.SchemaClosureLimitExceededException;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -52,16 +51,6 @@ public class XmlValidationPolicy extends XmlValidationPolicyV3 implements HttpPo
 
     private static final String MESSAGE_FIELD = "message";
     private static final String DEFAULT_VALIDATION_ERROR_MESSAGE = "XML validation failed";
-    private static final String CLIENT_MESSAGE_NOT_FOUND = "Referenced schema artifact was not found";
-    private static final String CLIENT_MESSAGE_NOT_READY = "Schema registry is not ready";
-    private static final String CLIENT_MESSAGE_UNREACHABLE = "Schema registry is temporarily unavailable";
-    private static final String CLIENT_MESSAGE_COMPILE = "Unable to compile the XSD schema";
-    private static final String CLIENT_MESSAGE_CLOSURE_LIMIT_ARTIFACTS = "Schema closure exceeds the maximum artifacts limit";
-    private static final String CLIENT_MESSAGE_CLOSURE_LIMIT_BYTES = "Schema closure exceeds the maximum bytes limit";
-    private static final String CLIENT_MESSAGE_CLOSURE_LIMIT_DEPTH = "Schema closure exceeds the maximum import depth limit";
-    private static final String CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC = "Schema closure exceeds configured limits";
-    private static final String CLIENT_MESSAGE_CONFIGURATION = "XML validation schema configuration is invalid";
-    private static final String CLIENT_MESSAGE_OTHER = "Unable to resolve the XSD schema";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -175,30 +164,6 @@ public class XmlValidationPolicy extends XmlValidationPolicyV3 implements HttpPo
                 .message(buildErrorResponseBody(clientMessage(error)))
                 .cause(error)
         );
-    }
-
-    private static String clientMessage(XsdSchemaResolutionException error) {
-        return switch (error.getFailureKind()) {
-            case NOT_FOUND -> CLIENT_MESSAGE_NOT_FOUND;
-            case NOT_READY -> CLIENT_MESSAGE_NOT_READY;
-            case UNREACHABLE -> CLIENT_MESSAGE_UNREACHABLE;
-            case COMPILE -> CLIENT_MESSAGE_COMPILE;
-            case CLOSURE_LIMIT -> closureLimitClientMessage(error.getClosureLimitKind());
-            case CONFIGURATION -> CLIENT_MESSAGE_CONFIGURATION;
-            case OTHER -> CLIENT_MESSAGE_OTHER;
-        };
-    }
-
-    private static String closureLimitClientMessage(SchemaClosureLimitExceededException.ClosureLimitKind limitKind) {
-        if (limitKind == null) {
-            return CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC;
-        }
-        return switch (limitKind) {
-            case ARTIFACTS -> CLIENT_MESSAGE_CLOSURE_LIMIT_ARTIFACTS;
-            case BYTES -> CLIENT_MESSAGE_CLOSURE_LIMIT_BYTES;
-            case IMPORT_DEPTH -> CLIENT_MESSAGE_CLOSURE_LIMIT_DEPTH;
-            case UNKNOWN -> CLIENT_MESSAGE_CLOSURE_LIMIT_GENERIC;
-        };
     }
 
     private String buildErrorResponseBody(String errorMessage) {
